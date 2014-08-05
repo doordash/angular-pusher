@@ -1,9 +1,4 @@
 /**
- * Brian Woodward
- *
- * Brian Woodward <http://github.com/doowb>
- * Created and maintained by Brian Woodward
- *
  * Copyright (c) 2014 Brian Woodward.
  * Licensed under the MIT License (MIT).
  */
@@ -16,27 +11,15 @@
 
 'use strict';
 
-angular.module('doowb.angular-pusher', [])
+angular.module('msfrisbie.angular-pusher', [])
 
 // create a provider that loads the pusher script from a cdn
 .provider('PusherService', function () {
   var scriptUrl = '//js.pusher.com/2.2/pusher.min.js';
   var scriptId = 'pusher-sdk';
-  var apiKey = '';
-  var initOptions = {};
 
   this.setPusherUrl = function (url) {
     if(url) scriptUrl = url;
-    return this;
-  };
-
-  this.setOptions = function (options) {
-    initOptions = options || initOptions;
-    return this;
-  };
-
-  this.setToken = function (token) {
-    apiKey = token || apiKey;
     return this;
   };
 
@@ -62,16 +45,10 @@ angular.module('doowb.angular-pusher', [])
   this.$get = ['$document', '$timeout', '$q', '$rootScope', '$window', '$location',
     function ($document, $timeout, $q, $rootScope, $window, $location) {
       var deferred = $q.defer();
-      var pusher;
-
-      function onSuccess () {
-        pusher = new $window.Pusher(apiKey, initOptions);
-      }
 
       var onScriptLoad = function (callback) {
-        onSuccess();
         $timeout(function () {
-          deferred.resolve(pusher);
+          deferred.resolve();
         });
       };
 
@@ -81,23 +58,33 @@ angular.module('doowb.angular-pusher', [])
 
 })
 
-.factory('Pusher', ['$rootScope', 'PusherService',
-  function ($rootScope, PusherService) {
+.factory('Pusher', ['$rootScope', '$window', 'PusherService',
+  function ($rootScope, $window, PusherService) {
+
+    var pusher;
+
     return {
+      // if you forget to initialize, oh well
+      initialize: function(apiKey, initOptions) {
+        PusherService.then(function() {
+          pusher = new $window.Pusher(apiKey, initOptions)
+        })
+      },
 
       subscribe: function (channelName, eventName, callback) {
-        PusherService.then(function (pusher) {
+        PusherService.then(function () {
           var channel = pusher.channel(channelName) || pusher.subscribe(channelName);
           channel.bind(eventName, function (data) {
             if (callback) callback(data);
-            $rootScope.$broadcast(channelName + ':' + eventName, data);
-            $rootScope.$digest();
+            // only use $rootScope for event bus
+            $rootScope.$emit(channelName + ':' + eventName, data);
+            // $rootScope.$digest();
           });
         });
       },
 
       unsubscribe: function (channelName) {
-        PusherService.then(function (pusher) {
+        PusherService.then(function () {
           pusher.unsubscribe(channelName);
         });
       }
